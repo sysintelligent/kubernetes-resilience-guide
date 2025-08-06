@@ -2483,23 +2483,18 @@ Remember: Resilience is not a destination but a continuous journey of improvemen
 
 ## References and Further Reading
 
-### Data Sources and Statistics
-- [Gartner: The Cost of Downtime](https://www.gartner.com/en/newsroom/press-releases/2014-07-16-gartner-says-application-downtime-costs-the-average-enterprise-163-million-per-year) - Enterprise downtime cost analysis
-- [Amazon's 2013 AWS Outage Cost Analysis](https://www.forbes.com/sites/stevebanker/2013/08/19/amazon-web-services-outage-costs-66-million-per-hour/) - Forbes analysis of Amazon's outage costs
-- [Ponemon Institute: Cost of Data Center Outages](https://www.ponemon.org/research/ponemon-institute-releases-2016-cost-of-data-center-outages) - Comprehensive study on downtime costs
-- [Uptime Institute: Annual Data Center Survey](https://uptimeinstitute.com/resources/asset/2021-data-center-industry-survey) - Industry availability statistics
-- [Gartner: Customer Churn After Service Outages](https://www.gartner.com/en/documents/3992666) - Impact of downtime on customer retention
-
-### Technical Documentation
 - [Kubernetes Documentation: Disruptions](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/)
 - [Kubernetes Documentation: Horizontal Pod Autoscaling](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
+- [Kubernetes Documentation: Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/)
 - [Kubernetes Documentation: Topology Spread Constraints](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/)
-- [Chaos Mesh Documentation](https://chaos-mesh.org/docs/)
-- [Istio Documentation: Traffic Management](https://istio.io/latest/docs/concepts/traffic-management/)
-- [Prometheus Monitoring Best Practices](https://prometheus.io/docs/practices/)
-- [CNCF Cloud Native Trail Map](https://github.com/cncf/trailmap)
-- [Google SRE Books](https://sre.google/books/)
-- [Resilience4j Documentation](https://resilience4j.readme.io/)
-- [AWS Well-Architected Framework: Reliability Pillar](https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/welcome.html)
-- [Kubernetes Failure Stories](https://k8s.af/) - Learn from real-world incidents
+- [Resilience4j Documentation](https://resilience4j.readme.io/) - Circuit breaker, retry, and bulkhead patterns
+- [Circuit Breaker Pattern](https://martinfowler.com/bliki/CircuitBreaker.html) - Martin Fowler's explanation
 - [Chaos Engineering: Building Confidence in System Behavior](https://www.oreilly.com/library/view/chaos-engineering/9781491988459/)
+- [Prometheus Monitoring Best Practices](https://prometheus.io/docs/practices/)
+- [Jaeger Distributed Tracing](https://www.jaegertracing.io/docs/)
+- [OpenTelemetry](https://opentelemetry.io/docs/) - Observability framework
+- [CNCF Cloud Native Trail Map](https://github.com/cncf/trailmap)
+- [Google SRE Books](https://sre.google/books/) - Site Reliability Engineering
+- [AWS Well-Architected Framework: Reliability Pillar](https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/welcome.html)
+- [CIS Kubernetes Benchmark](https://www.cisecurity.org/benchmark/kubernetes/) - Security guidelines
+- [Kubernetes Failure Stories](https://k8s.af/) - Learn from real-world incidents
