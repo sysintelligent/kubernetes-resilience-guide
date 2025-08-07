@@ -694,18 +694,6 @@ spec:
         summary: "High CPU usage detected"     # Alert message
 ```
 
-**Troubleshooting Resource Issues**:
-
-Common resource management problems and their solutions:
-
-| Problem | Symptoms | Solution |
-|---------|----------|----------|
-| **OOM Kills** | Pods restart with `OOMKilled` status | Increase memory limits, optimize application memory usage |
-| **CPU Throttling** | High response times, performance degradation | Increase CPU limits or optimize application efficiency |
-| **Scheduling Failures** | Pods stuck in `Pending` state | Increase node capacity or reduce resource requests |
-| **Resource Waste** | Low utilization with high requests | Use VPA or reduce requests based on actual usage |
-| **Noisy Neighbors** | Inconsistent performance | Implement proper limits and consider node isolation |
-
 ---
 
 # Factor IV: Graceful Lifecycle
