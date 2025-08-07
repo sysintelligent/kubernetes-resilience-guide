@@ -1750,19 +1750,17 @@ This factor builds upon all previous factors by ensuring that the resilient infr
 
 **Resilience Patterns Overview**
 
-| Priority | Pattern | Use Case | Failure Mode Addressed | Implementation Complexity |
-|----------|---------|----------|----------------------|---------------------------|
-| **Critical** | Health Check Endpoints | Kubernetes integration | Improper traffic routing | Low |
-| **Critical** | Timeout Patterns | Slow/hanging operations | Resource exhaustion | Low |
-| **Critical** | Graceful Degradation | Dependency failures | Complete service outages | Medium |
-| **Essential** | Circuit Breaker | External dependencies | Cascading failures | Medium |
-| **Essential** | Retry + Exponential Backoff | Transient errors | Temporary network issues | Low |
-| **Essential** | Rate Limiting | High traffic/abuse | System overload | Medium |
-| **Essential** | Bulkhead Pattern | Resource isolation | Noisy neighbor problems | High |
-| **Production** | Idempotency | Duplicate operations | Data corruption | Medium |
-| **Production** | Structured Logging | Debugging/monitoring | Poor observability | Low |
-| **Production** | Async Processing | Workload distribution | Blocking operations | High |
-| **Production** | Caching Patterns | Performance/availability | Backend overload | Medium |
+- **Health Check Endpoints**
+- **Timeout Patterns**
+- **Graceful Degradation**
+- **Circuit Breaker**
+- **Retry + Exponential Backoff**
+- **Rate Limiting**
+- **Bulkhead Pattern**
+- **Idempotency**
+- **Structured Logging**
+- **Async Processing**
+- **Caching Patterns**
 
 **1. Health Check Endpoints**
 **Priority: Critical** | **Why Essential**: Integrates with Kubernetes probes for proper traffic routing and pod lifecycle management.
