@@ -10,20 +10,25 @@ Each factor builds upon the previous ones, creating a layered approach to resili
 
 ## The 12 Factors Overview
 
-| Factor | Name | Purpose | Priority |
-|--------|------|---------|----------|
-| **I** | Replicated Workloads | Eliminate single points of failure | Critical |
-| **II** | Health Monitoring | Detect and recover from failures | Critical |
-| **III** | Resource Management | Prevent resource exhaustion and enable optimization | Critical |
-| **IV** | Graceful Lifecycle | Manage pod startup and shutdown | High |
-| **V** | Topology Distribution | Survive infrastructure failures | High |
-| **VI** | Auto-Scaling | Handle traffic spikes and failures | High |
-| **VII** | Disruption Protection | Protect during planned maintenance | High |
-| **VIII** | Configuration Resilience | Manage configuration changes safely | Medium |
-| **IX** | Storage Resilience | Protect data and state | Medium |
-| **X** | Network Resilience | Control traffic and communication | Medium |
-| **XI** | Security Resilience | Prevent security-related failures | Medium |
-| **XII** | Application Resilience | Handle application-level failures | Advanced |
+### Critical Priority
+- [Factor I: Replicated Workloads](#factor-i-replicated-workloads) - Eliminate single points of failure
+- [Factor II: Health Monitoring](#factor-ii-health-monitoring) - Detect and recover from failures  
+- [Factor III: Resource Management](#factor-iii-resource-management) - Prevent resource exhaustion and enable optimization
+
+### High Priority
+- [Factor IV: Graceful Lifecycle](#factor-iv-graceful-lifecycle) - Manage pod startup and shutdown
+- [Factor V: Topology Distribution](#factor-v-topology-distribution) - Survive infrastructure failures
+- [Factor VI: Auto-Scaling](#factor-vi-auto-scaling) - Handle traffic spikes and failures
+- [Factor VII: Disruption Protection](#factor-vii-disruption-protection) - Protect during planned maintenance
+
+### Medium Priority
+- [Factor VIII: Configuration Resilience](#factor-viii-configuration-resilience) - Manage configuration changes safely
+- [Factor IX: Storage Resilience](#factor-ix-storage-resilience) - Protect data and state
+- [Factor X: Network Resilience](#factor-x-network-resilience) - Control traffic and communication
+- [Factor XI: Security Resilience](#factor-xi-security-resilience) - Prevent security-related failures
+
+### Advanced Priority
+- [Factor XII: Application Resilience](#factor-xii-application-resilience) - Handle application-level failures
 
 ## Quick Start: Production-Ready Resilient Configuration
 
@@ -1272,8 +1277,6 @@ spec:
     configMap:
       name: app-config
 ```
-
-
 
 ---
 
