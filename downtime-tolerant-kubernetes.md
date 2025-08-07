@@ -1,7 +1,5 @@
 # The 12 Factors of Kubernetes Resilience
 
-## Architecting Downtime-Tolerant Applications in Kubernetes
-
 As Kubernetes adoption surges in cloud environments, ensuring applications are resilient to downtime—whether from node failures, upgrades, or network issues—is critical for meeting Service Level Agreements (SLAs) with customers. A single minute of downtime can cost enterprises $100,000+ in lost revenue and eroded customer trust [Gartner, 2014], while 99.9% availability allows only 8.76 hours of downtime per year compared to 4.38 minutes for 99.99% availability [Uptime Institute, 2021].
 
 This guide presents **The 12 Factors of Kubernetes Resilience**—a comprehensive methodology for building unstoppable applications in Kubernetes. Inspired by the 12-Factor App methodology, these factors provide a systematic approach to achieving 99.9%+ availability through proper pod distribution, health checks, autoscaling, and application-level patterns like circuit breakers and retries.
