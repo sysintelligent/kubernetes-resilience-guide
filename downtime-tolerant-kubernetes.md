@@ -8,18 +8,18 @@ Each factor builds upon the previous ones, creating a layered approach to resili
 
 ## The 12 Factors Overview
 
-- [Factor I: Replicated Workloads](#factor-i-replicated-workloads) - Eliminate single points of failure
-- [Factor II: Health Monitoring](#factor-ii-health-monitoring) - Detect and recover from failures  
-- [Factor III: Resource Management](#factor-iii-resource-management) - Prevent resource exhaustion and enable optimization
-- [Factor IV: Graceful Lifecycle](#factor-iv-graceful-lifecycle) - Manage pod startup and shutdown
-- [Factor V: Topology Distribution](#factor-v-topology-distribution) - Survive infrastructure failures
-- [Factor VI: Auto-Scaling](#factor-vi-auto-scaling) - Handle traffic spikes and failures
-- [Factor VII: Disruption Protection](#factor-vii-disruption-protection) - Protect during planned maintenance
-- [Factor VIII: Configuration Resilience](#factor-viii-configuration-resilience) - Manage configuration changes safely
-- [Factor IX: Storage Resilience](#factor-ix-storage-resilience) - Protect data and state
-- [Factor X: Network Resilience](#factor-x-network-resilience) - Control traffic and communication
-- [Factor XI: Security Resilience](#factor-xi-security-resilience) - Prevent security-related failures
-- [Factor XII: Application Resilience](#factor-xii-application-resilience) - Handle application-level failures
+- **Factor I: Replicated Workloads** - Eliminate single points of failure
+- **Factor II: Health Monitoring** - Detect and recover from failures  
+- **Factor III: Resource Management** - Prevent resource exhaustion and enable optimization
+- **Factor IV: Graceful Lifecycle** - Manage pod startup and shutdown
+- **Factor V: Topology Distribution** - Survive infrastructure failures
+- **Factor VI: Auto-Scaling** - Handle traffic spikes and failures
+- **Factor VII: Disruption Protection** - Protect during planned maintenance
+- **Factor VIII: Configuration Resilience** - Manage configuration changes safely
+- **Factor IX: Storage Resilience** - Protect data and state
+- **Factor X: Network Resilience** - Control traffic and communication
+- **Factor XI: Security Resilience** - Prevent security-related failures
+- **Factor XII: Application Resilience** - Handle application-level failures
 
 ## Quick Start: Production-Ready Resilient Configuration
 
@@ -185,11 +185,15 @@ This configuration implements multiple layers of resilience that work together t
 # Node-level distribution
 podAntiAffinity:
   topologyKey: kubernetes.io/hostname  # Spreads across different nodes
+```
 
+```yaml
 # Zone-level distribution  
 podAntiAffinity:
   topologyKey: topology.kubernetes.io/zone  # Spreads across availability zones
+```
 
+```yaml
 # Even distribution enforcement
 topologySpreadConstraints:
   maxSkew: 1  # Ensures balanced pod distribution
@@ -587,7 +591,6 @@ For critical workloads that must survive resource pressure, use priority classes
 ```yaml
 # Priority Classes - Define scheduling priority for workloads
 # Higher values = higher priority during scheduling and resource pressure
-
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
@@ -1726,6 +1729,8 @@ spec:
 ---
 
 # Factor XII: Application Resilience
+
+> **Note**: The sample code examples in this factor are AI-generated using Python for demonstration purposes.
 
 **Purpose**: Handle application-level failures through circuit breakers, retries, and resilience patterns that integrate with Kubernetes primitives
 
