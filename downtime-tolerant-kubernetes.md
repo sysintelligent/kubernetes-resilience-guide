@@ -400,17 +400,16 @@ Resource management works in conjunction with Factors I and II to ensure that re
 **Use Case**: All production workloads to prevent resource contention and ensure predictable performance
 
 **Configuration**:
-- Set appropriate CPU and memory requests and limits based on actual usage patterns
-- Use QoS classes (Guaranteed, Burstable, BestEffort) strategically for workload prioritization
-- Implement resource quotas and limit ranges at the namespace level
+- Set CPU and memory requests/limits based on usage patterns
+- Use QoS classes for workload prioritization
+- Implement resource quotas and limit ranges
 - Configure priority classes for critical workloads
-- Monitor resource usage continuously and adjust limits based on observability data
-- **Best Practice**: Start with conservative limits based on profiling, implement gradual right-sizing, and use VPA for optimization
-- **Impact**: **Prevents resource exhaustion, ensures stable cluster performance, and enables predictable scaling behavior**
+- **Best Practice**: Start with conservative limits, implement gradual right-sizing
+- **Impact**: **Prevents resource exhaustion and ensures stable cluster performance**
 
 **1. CPU and Memory Requests and Limits**:
 
-Start with basic resource management by setting CPU and memory requests and limits. This prevents resource exhaustion and ensures predictable performance.
+Set CPU and memory requests and limits to prevent resource exhaustion and ensure predictable performance.
 
 ```yaml
 apiVersion: apps/v1
@@ -418,7 +417,7 @@ kind: Deployment
 metadata:
   name: web-app
 spec:
-  replicas: 3                    # Run 3 copies for high availability
+  replicas: 3
   selector:
     matchLabels:
       app: web-app
@@ -431,135 +430,119 @@ spec:
       - name: app
         image: my-app:latest
         ports:
-        - containerPort: 8080    # Application listens on port 8080
+        - containerPort: 8080
         
-        # Core resource management - REQUIRED for production
         resources:
-          requests:              # Minimum resources needed to run
-            cpu: "100m"          # 0.1 CPU cores (100 millicores) - aligned with other examples
-            memory: "128Mi"      # 128 MiB RAM - minimum for stable operation
-          limits:                # Maximum resources allowed
-            cpu: "500m"          # 0.5 CPU cores - prevents CPU hogging
-            memory: "512Mi"      # 512 MiB RAM - prevents OOM kills
+          requests:
+            cpu: "100m"          # 0.1 CPU cores
+            memory: "128Mi"      # 128 MiB RAM
+          limits:
+            cpu: "500m"          # 0.5 CPU cores
+            memory: "512Mi"      # 512 MiB RAM
         
-        # Health checks - detect and restart unhealthy containers
-        livenessProbe:           # Restart container if unhealthy
+        livenessProbe:
           httpGet:
-            path: /health        # Health check endpoint
+            path: /health
             port: 8080
-          periodSeconds: 30      # Check every 30 seconds
-          timeoutSeconds: 5      # Fail if response takes > 5 seconds
-          failureThreshold: 3    # Restart after 3 consecutive failures
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
         
-        readinessProbe:          # Control traffic routing
+        readinessProbe:
           httpGet:
-            path: /ready         # Ready check endpoint
+            path: /ready
             port: 8080
-          periodSeconds: 10      # Check every 10 seconds
-          timeoutSeconds: 3      # Fail if response takes > 3 seconds
-          failureThreshold: 3    # Remove from traffic after 3 failures
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
 ```
 
 **2. QoS Classes and Their Impact**:
 
-Use Quality of Service (QoS) classes to prioritize workloads under resource pressure. Choose the appropriate class based on your application's criticality.
+Use Quality of Service (QoS) classes to prioritize workloads under resource pressure.
 
 ```yaml
-# Guaranteed QoS - Highest priority, last to be evicted
-# Use for: Critical databases, monitoring systems, payment processors
+# Guaranteed QoS - Highest priority (requests = limits)
+# Use for: Critical databases, monitoring systems
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: guaranteed-qos-app
+  name: critical-app
 spec:
   template:
     spec:
       containers:
-      - name: critical-app
+      - name: app
         image: critical-app:latest
         resources:
           requests:
-            cpu: "500m"          # Minimum CPU needed
-            memory: "512Mi"      # Minimum memory needed
+            cpu: "500m"
+            memory: "512Mi"
           limits:
-            cpu: "500m"          # MUST equal requests for Guaranteed QoS
-            memory: "512Mi"      # MUST equal requests for Guaranteed QoS
+            cpu: "500m"          # Must equal requests
+            memory: "512Mi"      # Must equal requests
 ---
-# Burstable QoS - Medium priority, can burst above requests
-# Use for: Web applications, APIs, most workloads
+# Burstable QoS - Medium priority (requests < limits)
+# Use for: Web applications, APIs
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: burstable-qos-app
+  name: web-app
 spec:
   template:
     spec:
       containers:
-      - name: web-app
+      - name: app
         image: web-app:latest
         resources:
           requests:
-            cpu: "100m"          # Minimum CPU needed
-            memory: "128Mi"      # Minimum memory needed
+            cpu: "100m"
+            memory: "128Mi"
           limits:
-            cpu: "500m"          # Can burst up to 5x requests
-            memory: "256Mi"      # Can use up to 2x requests
+            cpu: "500m"          # Can burst above requests
+            memory: "256Mi"
 ---
-# BestEffort QoS - Lowest priority, first to be evicted
+# BestEffort QoS - Lowest priority (no requests/limits)
 # Use for: Batch jobs, non-critical workloads
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: besteffort-qos-app
+  name: batch-job
 spec:
   template:
     spec:
       containers:
-      - name: batch-job
+      - name: job
         image: batch-job:latest
-        # No resource specifications = BestEffort QoS
-        # Gets whatever resources are available
+        # No resource specifications = BestEffort
 ```
 
-**QoS Classes Priority and Eviction Order**:
-- **Guaranteed** (requests = limits): Highest priority, last to be evicted
-- **Burstable** (requests < limits): Medium priority, evicted before Guaranteed
-- **BestEffort** (no requests/limits): Lowest priority, first to be evicted under pressure
+**QoS Priority Order**: Guaranteed (highest) → Burstable → BestEffort (lowest)
 
 **3. Resource Quotas and Limit Ranges**:
 
-Implement namespace-level resource controls to prevent resource exhaustion and ensure fair allocation across teams or applications.
+Implement namespace-level resource controls to prevent resource exhaustion and ensure fair allocation. Prevents one team or application from consuming all cluster resources, ensuring fair allocation.
 
 ```yaml
 # Resource Quota - Limits total resources in a namespace
-# Use for: Multi-tenant environments, cost control, resource fairness
 apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: production-quota
   namespace: production
 spec:
-  hard:                                # Hard limits - cannot be exceeded
-    requests.cpu: "8"                  # Total CPU requests across all pods
-    requests.memory: 16Gi              # Total memory requests across all pods
-    limits.cpu: "16"                   # Total CPU limits across all pods
-    limits.memory: 32Gi                # Total memory limits across all pods
-    requests.ephemeral-storage: 100Gi  # Total temporary storage
-    limits.ephemeral-storage: 200Gi    # Total temporary storage limits
-    persistentvolumeclaims: "10"       # Max number of PVCs
-    services: "20"                     # Max number of services
-    services.loadbalancers: "2"        # Max number of load balancers
-    services.nodeports: "10"           # Max number of node ports
-    count/pods: "50"                   # Max number of pods
-    count/deployments.apps: "20"       # Max number of deployments
-    count/statefulsets.apps: "5"       # Max number of statefulsets
-    count/jobs.batch: "10"             # Max number of batch jobs
-  scopes:                              # Which pods count toward quota
-  - BestEffort                         # Include BestEffort pods
-  - NotTerminating                     # Exclude pods that are terminating
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    count/pods: "50"
+    count/deployments.apps: "20"
+  scopes:
+  - BestEffort
+  - NotTerminating
 ---
-# Limit Range - Sets defaults and limits for individual containers/pods
-# Use for: Consistent resource allocation, preventing resource waste
+# Limit Range - Sets defaults for containers/pods
 apiVersion: v1
 kind: LimitRange
 metadata:
@@ -567,70 +550,62 @@ metadata:
   namespace: production
 spec:
   limits:
-  - default:                      # Default limits if not specified
-      cpu: 500m                   # Default CPU limit per container
-      memory: 512Mi               # Default memory limit per container
-    defaultRequest:               # Default requests if not specified
-      cpu: 100m                   # Default CPU request per container
-      memory: 128Mi               # Default memory request per container
-    type: Container               # Apply to individual containers
-  - default:                      # Default limits per pod
-      cpu: 1000m                  # Total CPU limit per pod
-      memory: 1Gi                 # Total memory limit per pod
-    defaultRequest:               # Default requests per pod
-      cpu: 200m                   # Total CPU request per pod
-      memory: 256Mi               # Total memory request per pod
-    type: Pod                     # Apply to entire pods
-  - type: PersistentVolumeClaim   # Storage limits
-    max:
-      storage: 100Gi              # Maximum PVC size
-    min:
-      storage: 1Gi                # Minimum PVC size
+  - default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 100m
+      memory: 128Mi
+    type: Container
+  - default:
+      cpu: 1000m
+      memory: 1Gi
+    defaultRequest:
+      cpu: 200m
+      memory: 256Mi
+    type: Pod
 ```
 
 **4. Priority Classes for Critical Workloads**:
 
-For critical workloads that must survive resource pressure, use priority classes to ensure they get scheduled first and are last to be evicted.
+Use priority classes to ensure critical workloads get scheduled first and are last to be evicted.
 
 ```yaml
-# Priority Classes - Define scheduling priority for workloads
-# Higher values = higher priority during scheduling and resource pressure
+# Priority Classes - Higher values = higher priority
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
   name: critical-priority
-value: 1000000                    # Very high priority (1 million)
-globalDefault: false              # Don't apply to all pods by default
-description: "Critical workloads that should survive resource pressure"
+value: 1000000                    # Very high priority
+globalDefault: false
+description: "Critical workloads"
 ---
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
   name: high-priority
-value: 100000                     # High priority (100 thousand)
-globalDefault: false              # Don't apply to all pods by default
+value: 100000                     # High priority
+globalDefault: false
 description: "High priority workloads"
 ---
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
   name: low-priority
-value: 1000                       # Low priority (1 thousand)
-globalDefault: false              # Don't apply to all pods by default
-description: "Low priority workloads that can be preempted"
+value: 1000                       # Low priority
+globalDefault: false
+description: "Low priority workloads"
 ```
 
-**Critical Workload with Priority**:
+**Critical Workload Example**:
 
 ```yaml
-# Critical Workload Example - Database with high priority
-# This database will be scheduled first and evicted last
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: critical-database
 spec:
-  replicas: 3                      # Run 3 database instances
+  replicas: 3
   selector:
     matchLabels:
       app: critical-database
@@ -639,66 +614,17 @@ spec:
       labels:
         app: critical-database
     spec:
-      priorityClassName: critical-priority  # Use critical priority class
+      priorityClassName: critical-priority
       containers:
       - name: database
         image: postgres:14
         resources:
           requests:
-            cpu: "1000m"           # 1 CPU core minimum
-            memory: "2Gi"          # 2GB RAM minimum
+            cpu: "1000m"
+            memory: "2Gi"
           limits:
-            cpu: "2000m"           # 2 CPU cores maximum
-            memory: "4Gi"          # 4GB RAM maximum
-```
-
-**5. Resource Monitoring and Optimization**:
-
-Monitor resource usage to identify optimization opportunities and prevent issues before they impact your application.
-
-```yaml
-# ServiceMonitor - Tells Prometheus to scrape metrics from your app
-# Use for: Monitoring resource usage, performance metrics
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: web-app-metrics
-  namespace: production
-spec:
-  selector:
-    matchLabels:
-      app: web-app                # Monitor pods with this label
-  endpoints:
-  - port: 8080                    # Port where metrics are exposed
-    interval: 30s                 # Scrape every 30 seconds
-    path: /metrics                # Metrics endpoint path
----
-# PrometheusRule - Define alerts based on resource usage
-# Use for: Proactive monitoring, early warning of resource issues
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata:
-  name: resource-alerts
-  namespace: production
-spec:
-  groups:
-  - name: resource-management
-    rules:
-    - alert: HighMemoryUsage
-      expr: container_memory_usage_bytes{container="app"} / container_spec_memory_limit_bytes > 0.8
-      for: 5m                      # Alert if condition persists for 5 minutes
-      labels:
-        severity: warning
-      annotations:
-        summary: "High memory usage detected"  # Alert message
-    
-    - alert: HighCPUUsage
-      expr: rate(container_cpu_usage_seconds_total{container="app"}[5m]) > 0.8
-      for: 10m                     # Alert if condition persists for 10 minutes
-      labels:
-        severity: warning
-      annotations:
-        summary: "High CPU usage detected"     # Alert message
+            cpu: "2000m"
+            memory: "4Gi"
 ```
 
 ---
@@ -792,152 +718,59 @@ spec:
 
 This factor builds upon the previous factors by ensuring that replicated workloads are distributed across failure domains, not just running multiple copies on the same infrastructure.
 
-**Use Case**: Essential for high-availability apps in multi-zone cloud clusters
+**Use Case**: High-availability applications in multi-zone cloud clusters that need to survive infrastructure failures
 
 **Configuration**:
 - Use `topologySpreadConstraints` with `topologyKey: topology.kubernetes.io/zone`
   - Apply `podAntiAffinity` to spread pods across nodes
-  - Consider `requiredDuringScheduling` vs `preferredDuringScheduling`
+  - Use `DoNotSchedule` for critical services, `ScheduleAnyway` for non-critical
+  - Use `topologySpreadConstraints` for even distribution, `podAntiAffinity` for simple rules
+- **Replica Count**: Use `min_replicas = max(3, number_of_zones)` for production workloads
 - **Best Practice**: Balance distribution with cloud costs (cross-zone traffic fees)
 - **Impact**: **Ensures service survives node and zone failures**
 
-**Key Decision Points**:
-- **`DoNotSchedule` vs `ScheduleAnyway`**: 
-  - `DoNotSchedule`: Strict enforcement - pods won't schedule if constraints can't be met (use for critical services)
-  - `ScheduleAnyway`: Best effort - prefers constraint satisfaction but allows scheduling anyway (use for non-critical services)
-- **`topologySpreadConstraints` vs `podAntiAffinity`**: 
-  - `topologySpreadConstraints`: Better for even distribution across multiple domains
-  - `podAntiAffinity`: Better for simple "avoid same node/zone" rules
+**Topology Spreading Example**:
 
-**Comprehensive Topology Spreading and Node Affinity Example**:
-
-Advanced pod distribution strategies for multi-zone, multi-region, and custom topology deployments.
-
-- **Use Case**: High-availability applications, disaster recovery, workload optimization
-- **Configuration**: Topology spread constraints, node affinity, pod anti-affinity, custom topology labels
-- **Best Practice**: Use topology spreading for distribution, affinity for optimization, anti-affinity for isolation
+Zone-level pod distribution strategy for high-availability applications.
 
 ```yaml
-# Custom topology labels for rack-level distribution
-apiVersion: v1
-kind: Node
-metadata:
-  name: worker-1
-  labels:
-    rack: rack-a
-    datacenter: dc-1
-    tier: production
-    topology.kubernetes.io/zone: us-east-1a
-    topology.kubernetes.io/region: us-east-1
-spec:
-  taints: []
----
-# Comprehensive deployment with topology spreading and affinity
+# Simple deployment with zone-level topology spreading
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: high-availability-app
+  name: web-app
   labels:
-    app: high-availability-app
+    app: web-app
 spec:
-  replicas: 6  # Ensure enough replicas for meaningful distribution
+  replicas: 3  # Minimum for zone-level resilience
   selector:
     matchLabels:
-      app: high-availability-app
+      app: web-app
   template:
     metadata:
       labels:
-        app: high-availability-app
+        app: web-app
     spec:
-      # TOPOLOGY SPREAD CONSTRAINTS - Ensure even distribution across failure domains
+      # Zone-level distribution - spread pods across availability zones
       topologySpreadConstraints:
-      # Zone-level distribution (critical for multi-zone clusters)
-      - maxSkew: 1                                # Maximum difference in pod count between zones
+      - maxSkew: 1                                # Maximum 1 pod difference between zones
         topologyKey: topology.kubernetes.io/zone  # Spread across availability zones
-        whenUnsatisfiable: DoNotSchedule          # Fail scheduling if constraint can't be met
+        whenUnsatisfiable: DoNotSchedule          # Fail if constraint can't be met
         labelSelector:
           matchLabels:
-            app: high-availability-app
-      # Node-level distribution (prevents all pods on same node)
-      - maxSkew: 1                                # Maximum difference in pod count between nodes
-        topologyKey: kubernetes.io/hostname       # Spread across different nodes
-        whenUnsatisfiable: ScheduleAnyway         # Allow scheduling even if constraint can't be met
-        labelSelector:
-          matchLabels:
-            app: high-availability-app
-      # Region-level distribution (for multi-region deployments)
-      - maxSkew: 1                                  # Maximum difference in pod count between regions
-        topologyKey: topology.kubernetes.io/region  # Spread across different regions
-        whenUnsatisfiable: DoNotSchedule            # Fail scheduling if constraint can't be met
-        labelSelector:
-          matchLabels:
-            app: high-availability-app
-      # Custom rack-level distribution (for on-premise clusters)
-      - maxSkew: 1                         # Maximum difference in pod count between racks
-        topologyKey: rack                  # Custom topology key for rack distribution
-        whenUnsatisfiable: ScheduleAnyway  # Allow scheduling even if constraint can't be met
-        labelSelector:
-          matchLabels:
-            app: high-availability-app
-      # POD AFFINITY RULES - Control pod placement relative to other pods
+            app: web-app
+      
+      # Anti-affinity - avoid scheduling multiple pods on same node
       affinity:
-        # Anti-affinity prevents pods from being scheduled together
         podAntiAffinity:
-          # Preferred anti-affinity (soft constraint - will try to avoid but allow if needed)
           preferredDuringSchedulingIgnoredDuringExecution:
           - weight: 100
             podAffinityTerm:
               labelSelector:
                 matchLabels:
-                  app: high-availability-app
+                  app: web-app
               topologyKey: kubernetes.io/hostname  # Avoid same node
-          - weight: 50
-            podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  app: high-availability-app
-              topologyKey: topology.kubernetes.io/zone  # Avoid same zone (lower priority)
-          # Required anti-affinity (hard constraint - must be satisfied)
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchLabels:
-                app: high-availability-app
-                tier: critical
-            topologyKey: topology.kubernetes.io/zone  # Critical pods must be in different zones
-        # Node affinity for hardware requirements and zone preferences
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: node.kubernetes.io/instance-type
-                operator: In
-                values:
-                - m5.large
-                - m5.xlarge
-                - m5.2xlarge
-              - key: topology.kubernetes.io/zone
-                operator: In
-                values:
-                - us-east-1a
-                - us-east-1b
-                - us-east-1c
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            preference:
-              matchExpressions:
-              - key: node.kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-          - weight: 50
-            preference:
-              matchExpressions:
-              - key: rack
-                operator: In
-                values:
-                - rack-a
-                - rack-b
-                - rack-c
+      
       containers:
       - name: web-app
         image: nginx:1.21
@@ -950,89 +783,6 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
-```
-
-**GPU Workload Isolation with Taints and Tolerations**:
-
-Specialized scheduling for GPU workloads with hardware isolation and resource optimization.
-
-- **Use Case**: Machine learning workloads, GPU-intensive applications, hardware-specific deployments
-- **Configuration**: Node taints, pod tolerations, GPU resource requests, specialized node affinity
-- **Best Practice**: Use taints for hardware isolation, tolerations for workload placement
-
-```yaml
-# Node with GPU taint for workload isolation
-apiVersion: v1
-kind: Node
-metadata:
-  name: gpu-node-1
-  labels:
-    hardware: gpu
-    gpu-type: nvidia-tesla-v100
-    topology.kubernetes.io/zone: us-east-1a
-spec:
-  taints:
-  - key: hardware
-    value: gpu
-    effect: NoSchedule
----
-# GPU workload with toleration and specialized scheduling
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ml-inference
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: ml-inference
-  template:
-    metadata:
-      labels:
-        app: ml-inference
-    spec:
-      # Tolerations allow pods to be scheduled on tainted nodes
-      tolerations:
-      - key: hardware
-        operator: Equal
-        value: gpu
-        effect: NoSchedule
-      # Node affinity ensures placement on GPU nodes
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: hardware
-                operator: In
-                values:
-                - gpu
-              - key: gpu-type
-                operator: In
-                values:
-                - nvidia-tesla-v100
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            preference:
-              matchExpressions:
-              - key: topology.kubernetes.io/zone
-                operator: In
-                values:
-                - us-east-1a
-                - us-east-1b
-                - us-east-1c
-      containers:
-      - name: inference
-        image: ml-inference:latest
-        resources:
-          requests:
-            nvidia.com/gpu: 1
-            cpu: 500m
-            memory: 2Gi
-          limits:
-            nvidia.com/gpu: 1
-            cpu: 2000m
-            memory: 8Gi
 ```
 
 ---
