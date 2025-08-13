@@ -806,7 +806,7 @@ This factor builds upon the previous factors by ensuring that the distributed, r
 - **Best Practice**: Combine with Cluster Autoscaler; use multiple metrics for robust scaling decisions
 - **Impact**: **Automatically handles traffic spikes and maintains capacity during pod failures**
 
-**Advanced HPA Example**:
+**HPA Example**:
 
 ```yaml
 apiVersion: autoscaling/v2
@@ -897,7 +897,7 @@ This factor builds upon the previous factors by ensuring that the distributed, a
 - **Best Practice**: Use `minAvailable: 2` for critical services, avoid `minAvailable: 100%` which blocks all maintenance
 - **Impact**: **Prevents cluster maintenance from causing service outages**
 
-**Basic PDB Example**:
+**PDB Example**:
 
 ```yaml
 apiVersion: policy/v1
@@ -905,53 +905,10 @@ kind: PodDisruptionBudget
 metadata:
   name: web-app-pdb
 spec:
-  minAvailable: 2
+  minAvailable: 2  # Always keep 2 pods available during maintenance
   selector:
     matchLabels:
       app: web-app
-```
-
-**Advanced PDB Examples**:
-
-```yaml
-# Percentage-based PDB for scalable workloads
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: web-app-pdb-percentage
-spec:
-  minAvailable: 80%  # Always keep 80% of pods available
-  selector:
-    matchLabels:
-      app: web-app
----
-# Absolute PDB for critical services
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: database-pdb-absolute
-spec:
-  minAvailable: 2  # Always keep exactly 2 pods available
-  selector:
-    matchLabels:
-      app: critical-database
----
-# PDB for StatefulSet with complex selector
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: statefulset-pdb
-spec:
-  minAvailable: 1
-  selector:
-    matchExpressions:
-    - key: app
-      operator: In
-      values:
-      - database
-      - cache
-    - key: statefulset.kubernetes.io/pod-name
-      operator: Exists
 ```
 
 ---
@@ -978,6 +935,7 @@ This factor builds upon the previous factors by ensuring that the resilient work
 **Configuration Example**:
 
 ```yaml
+# ConfigMap for non-sensitive configuration
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -986,7 +944,9 @@ data:
   database.host: "db.example.com"
   feature.newUI: "true"
   logging.level: "info"
+  app.port: "8080"
 ---
+# Secret for sensitive data
 apiVersion: v1
 kind: Secret
 metadata:
@@ -996,22 +956,59 @@ data:
   database.password: <base64-encoded-password>
   api.key: <base64-encoded-key>
 ---
-# Pod configuration
+# Deployment with configuration mounting
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: configurable-app
 spec:
-  containers:
-  - name: app
-    envFrom:
-    - configMapRef:
-        name: app-config
-    - secretRef:
-        name: app-secrets
-    volumeMounts:
-    - name: config-volume
-      mountPath: /etc/config
-  volumes:
-  - name: config-volume
-    configMap:
-      name: app-config
+  replicas: 3
+  selector:
+    matchLabels:
+      app: configurable-app
+  template:
+    metadata:
+      labels:
+        app: configurable-app
+    spec:
+      containers:
+      - name: app
+        image: my-app:latest
+        ports:
+        - containerPort: 8080
+        # Environment variables from ConfigMap and Secret
+        envFrom:
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: app-secrets
+        # Volume mount for hot reloading
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+          readOnly: true
+        # Hot reloading command
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          # Start config watcher in background
+          /app/config-watcher.sh &
+          # Start main application
+          /app/main
+      volumes:
+      - name: config-volume
+        configMap:
+          name: app-config
+---
+# Simple config watcher script (runs inside container)
+# This would be part of your application image
+# /app/config-watcher.sh:
+# #!/bin/bash
+# while inotifywait -e modify /etc/config; do
+#   echo "Config changed, reloading application..."
+#   # SIGHUP signal triggers graceful config reload without restart
+#   kill -HUP $(pgrep main)
+# done
 ```
 
 ---
@@ -1108,6 +1105,10 @@ This factor builds upon the previous factors by ensuring that the resilient work
 - Deploy Istio, Linkerd, or similar service mesh
 - Configure retry policies, circuit breakers, and timeout policies
 - Implement canary deployments and traffic splitting
+- **Circuit Breakers**: Prevent cascading failures by temporarily stopping requests to failing services
+- **Load Balancing**: Distribute traffic across healthy instances
+- **Health Checks**: Fail fast when services are unhealthy
+- **Network Policies**: Control traffic flow between services (see Security section)
 - **Best Practice**: Start simple; add complexity as needed
 - **Impact**: **Prevents network failures from cascading across services**
 
@@ -1157,112 +1158,61 @@ This factor builds upon the previous factors by ensuring that the resilient work
 - Use non-root users and read-only filesystems
 - Configure network policies for traffic control
 - Implement RBAC with least privilege principle
-
-**Best Practice**: Start with Restricted PSS and relax as needed, use dedicated service accounts for each workload
-
-**Impact**: **Prevents security breaches that could compromise resilience**
+- **Best Practice**: Start with Restricted PSS and relax as needed, use dedicated service accounts for each workload
+- **Impact**: **Prevents security breaches that could compromise resilience**
 
 **Pod Security Standards and Security Contexts**:
 
 Security is foundational to resilience - compromised pods can cause cascading failures and data breaches. Pod Security Standards provide a standardized way to enforce security policies across namespaces.
 
 ```yaml
-# =============================================================================
-# NAMESPACE CONFIGURATION WITH POD SECURITY STANDARDS
-# =============================================================================
-# This namespace enforces the most restrictive security profile (Restricted)
-# Pod Security Standards (PSS) provide three levels: Privileged, Baseline, Restricted
-# Restricted is the most secure and recommended for production workloads
+# Namespace with Pod Security Standards (Restricted)
 apiVersion: v1
 kind: Namespace
 metadata:
   name: production
   labels:
-    # ENFORCE: Pods that violate the policy will be rejected
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: v1.24
-    # AUDIT: Violations are logged but pods are still created
     pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/audit-version: v1.24
-    # WARN: Violations trigger warnings but pods are still created
     pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/warn-version: v1.24
 ---
-# =============================================================================
-# SECURE POD CONFIGURATION WITH DEFENSE IN DEPTH
-# =============================================================================
-# This pod demonstrates comprehensive security hardening for production workloads
-# Each security context setting reduces the attack surface and prevents privilege escalation
+# Secure Pod with minimal required security contexts
 apiVersion: v1
 kind: Pod
 metadata:
   name: secure-web-app
   namespace: production
 spec:
-  # POD-LEVEL SECURITY CONTEXT
-  # These settings apply to all containers in the pod
   securityContext:
-    # CRITICAL: Prevent running as root user (UID 0)
-    # This is the most important security setting
     runAsNonRoot: true
-    # Run as specific non-root user (UID 1000)
-    # Use dedicated UIDs for different applications
     runAsUser: 1000
-    # Set group ID for the process
     runAsGroup: 3000
-    # Set filesystem group ID for mounted volumes
     fsGroup: 2000
-    # Apply seccomp security profile to restrict system calls
-    # RuntimeDefault is the most secure option
     seccompProfile:
       type: RuntimeDefault
-    # SECURITY: Remove all Linux capabilities
-    # This prevents privilege escalation and reduces attack surface
     capabilities:
       drop:
       - ALL
   containers:
   - name: web-app
     image: secure-web-app:latest
-    # CONTAINER-LEVEL SECURITY CONTEXT
-    # These settings apply specifically to this container
     securityContext:
-      # PREVENT PRIVILEGE ESCALATION
-      # Even if the container has capabilities, it cannot gain more privileges
       allowPrivilegeEscalation: false
-      # IMMUTABLE FILESYSTEM
-      # Makes root filesystem read-only, preventing malicious file modifications
-      # Applications can only write to mounted volumes
       readOnlyRootFilesystem: true
-      # REDUNDANT NON-ROOT CHECK
-      # Additional check to ensure container doesn't run as root
-      runAsNonRoot: true
-      # SPECIFIC USER ID
-      # Run as the same user as pod-level context for consistency
-      runAsUser: 1000
-      # CONTAINER CAPABILITIES
-      # Remove all Linux capabilities from this specific container
-      # This is the most restrictive setting
-      capabilities:
-        drop:
-        - ALL
-    # VOLUME MOUNTS FOR WRITABLE DIRECTORIES
-    # Since root filesystem is read-only, we need writable volumes for:
-    # - /tmp: Temporary files and caching
-    # - /var/log: Application logs
+      # Note: runAsNonRoot and runAsUser inherited from pod-level
+      # Note: capabilities inherited from pod-level
     volumeMounts:
     - name: tmp
       mountPath: /tmp
     - name: varlog
       mountPath: /var/log
-  # VOLUME DEFINITIONS
-  # These provide writable storage for the read-only container
   volumes:
   - name: tmp
-    # Empty directory for temporary files
     emptyDir: {}
   - name: varlog
-    # Empty directory for application logs
     emptyDir: {}
 ```
 
@@ -1283,7 +1233,7 @@ spec:
   - Ingress
   - Egress
 ---
-# Allow web app to receive traffic from ingress
+# Allow web app ingress traffic
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -1303,15 +1253,8 @@ spec:
     ports:
     - protocol: TCP
       port: 8080
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: monitoring
-    ports:
-    - protocol: TCP
-      port: 8080
 ---
-# Allow web app to connect to database
+# Allow web app egress traffic
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -1331,13 +1274,6 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          name: cache
-    ports:
-    - protocol: TCP
-      port: 6379
   - to: []  # Allow DNS resolution
     ports:
     - protocol: UDP
@@ -1349,14 +1285,13 @@ spec:
 Role-Based Access Control prevents unauthorized access and potential failures through proper access management using the principle of least privilege.
 
 ```yaml
-# Service account for web application
+# Service account and RBAC for web application
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: web-app-sa
   namespace: production
 ---
-# Role for web application
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -1366,14 +1301,7 @@ rules:
 - apiGroups: [""]
   resources: ["configmaps", "secrets"]
   verbs: ["get", "list"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["services"]
-  verbs: ["get", "list", "watch"]
 ---
-# Role binding
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -1387,97 +1315,6 @@ roleRef:
   kind: Role
   name: web-app-role
   apiGroup: rbac.authorization.k8s.io
----
-# Cluster role for monitoring
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: monitoring-role
-rules:
-- apiGroups: [""]
-  resources: ["nodes", "pods", "services", "endpoints"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["namespaces"]
-  verbs: ["get", "list"]
----
-# Cluster role binding for monitoring
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: monitoring-rolebinding
-subjects:
-- kind: ServiceAccount
-  name: prometheus-sa
-  namespace: monitoring
-roleRef:
-  kind: ClusterRole
-  name: monitoring-role
-  apiGroup: rbac.authorization.k8s.io
-```
-
-**Deployment with Security Best Practices**:
-
-Combining all security practices into a production-ready deployment configuration.
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: secure-web-app
-  namespace: production
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: web-app
-  template:
-    metadata:
-      labels:
-        app: web-app
-    spec:
-      serviceAccountName: web-app-sa
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 3000
-        fsGroup: 2000
-        seccompProfile:
-          type: RuntimeDefault
-      containers:
-      - name: web-app
-        image: secure-web-app:latest
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          runAsUser: 1000
-          capabilities:
-            drop:
-            - ALL
-        resources:
-          requests:
-            cpu: "100m"
-            memory: "128Mi"
-          limits:
-            cpu: "500m"
-            memory: "512Mi"
-        volumeMounts:
-        - name: tmp
-          mountPath: /tmp
-        - name: varlog
-          mountPath: /var/log
-        env:
-        - name: PORT
-          value: "8080"
-        ports:
-        - containerPort: 8080
-          name: http
-      volumes:
-      - name: tmp
-        emptyDir: {}
-      - name: varlog
-        emptyDir: {}
 ```
 
 ---
