@@ -23,7 +23,7 @@ Each factor builds upon the previous ones, creating a layered approach to resili
 
 ## Quick Start: Production-Ready Resilient Configuration
 
-For teams starting their resilience journey, here's a comprehensive, production-ready configuration that implements multiple factors:
+For teams starting their resilience journey, here's a minimal, production-ready configuration that implements the essential 12 factors:
 
 ```yaml
 apiVersion: apps/v1
@@ -80,10 +80,11 @@ spec:
         # Startup probe for slow-starting applications
         startupProbe:
           httpGet:
-            path: /health
+            path: /startup
             port: 8080
           failureThreshold: 30
           periodSeconds: 10
+          timeoutSeconds: 5
         # Enhanced health checks with timeout values
         livenessProbe:
           httpGet:
@@ -110,8 +111,10 @@ spec:
               - -c
               - |
                 echo "Graceful shutdown initiated"
+                # Signal application to stop accepting new connections
+                curl -X POST http://localhost:8080/shutdown || true
                 # Give time for load balancer to remove from rotation
-                sleep 5
+                sleep 10
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -178,7 +181,7 @@ spec:
 
 ### Why This Configuration is Production-Ready
 
-This configuration implements multiple layers of resilience that work together to ensure high availability:
+This configuration implements the essential resilience factors that work together to ensure high availability:
 
 #### **Multi-Layer Pod Distribution**
 ```yaml
@@ -200,7 +203,7 @@ topologySpreadConstraints:
 ```
 **Impact**: Prevents cascading failures when nodes or entire zones go down. If one availability zone fails, your application remains available from other zones.
 
-#### **Comprehensive Health Monitoring**
+#### **Essential Health Monitoring**
 ```yaml
 startupProbe:     # Handles slow application startup (up to 5 minutes)
 livenessProbe:    # Detects and restarts unhealthy containers
@@ -208,7 +211,7 @@ readinessProbe:   # Controls traffic routing to healthy pods only
 ```
 **Impact**: 
 - **Startup probe** prevents premature restarts during slow application initialization
-- **Separate endpoints** (`/health` vs `/ready`) allow granular control over container lifecycle vs traffic routing
+- **Separate endpoints** (`/startup`, `/health`, `/ready`) allow granular control over container lifecycle vs traffic routing
 - **Timeout values** prevent hanging health checks that could mask real issues
 
 #### **Graceful Shutdown Management**
@@ -216,7 +219,8 @@ readinessProbe:   # Controls traffic routing to healthy pods only
 terminationGracePeriodSeconds: 60  # Extended time for cleanup
 lifecycle:
   preStop:  # Coordinated shutdown sequence
-    - sleep 5  # Allow load balancer to drain connections
+    - curl -X POST http://localhost:8080/shutdown  # Signal application
+    - sleep 10  # Allow load balancer to drain connections
 ```
 **Impact**: Prevents dropped requests during deployments, scaling, or node maintenance by ensuring clean connection termination.
 
@@ -264,7 +268,7 @@ Running multiple pod replicas ensures redundancy, allowing the application to re
 
 **Use Case**: Essential for all production workloads; stateless apps (e.g., web servers) use `Deployments`; stateful apps (e.g., databases) use `StatefulSets`
 
-**Important Exception**: **Kubernetes Operators and Controllers** - This factor does not apply to Kubernetes operators and custom controllers that follow the reconciliation pattern. These components are designed to run as single instances and rely on the controller pattern for resilience rather than traditional replication. The Kubernetes control plane itself handles operator failures through the reconciliation loop, where the desired state is continuously reconciled regardless of individual controller pod failures.
+**Special Consideration**: **Kubernetes Operators and Controllers** - This factor requires careful consideration for Kubernetes operators and custom controllers. While some operators use leader election to run as single active instances, many production operators deploy multiple replicas for high availability. The reconciliation pattern provides inherent resilience through continuous state reconciliation, but this doesn't eliminate the need for proper deployment strategies. Critical operators managing cluster resources should still consider replication for improved availability, while non-critical operators may safely use single-instance deployments with leader election.
 
 **Configuration**:
 - Set `replicas: N` (minimum 3 for production) to maintain multiple pods
