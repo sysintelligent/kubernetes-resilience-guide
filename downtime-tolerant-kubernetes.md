@@ -262,22 +262,18 @@ This configuration achieves **99.9%+ availability** by eliminating single points
 
 **Priority**: Critical Foundation
 
-**Why Essential**: Without replicas, any single pod failure causes complete service outage. This is the **most fundamental** resilience feature - the foundation upon which all other factors build.
+**Why Essential**: Without replicas, any single pod failure causes complete service outage. This is the most fundamental resilience feature - the foundation upon which all other factors build.
 
-Running multiple pod replicas ensures redundancy, allowing the application to remain available if some pods fail. This factor addresses the core principle of eliminating single points of failure.
-
-**Use Case**: Essential for all production workloads; stateless apps (e.g., web servers) use `Deployments`; stateful apps (e.g., databases) use `StatefulSets`
-
-**Special Consideration**: **Kubernetes Operators and Controllers** - This factor requires careful consideration for Kubernetes operators and custom controllers. While some operators use leader election to run as single active instances, many production operators deploy multiple replicas for high availability. The reconciliation pattern provides inherent resilience through continuous state reconciliation, but this doesn't eliminate the need for proper deployment strategies. Critical operators managing cluster resources should still consider replication for improved availability, while non-critical operators may safely use single-instance deployments with leader election.
+**Use Case**: Essential for all production workloads; stateless apps use `Deployments`; stateful apps use `StatefulSets`
 
 **Configuration**:
 - Set `replicas: N` (minimum 3 for production) to maintain multiple pods
-- For stateful apps, use `StatefulSet` with stable pod identities and persistent storage
+- For stateful apps, use `StatefulSet` with stable pod identities
 - **Best Practice**: Start with at least 3 replicas (not 2) to handle rolling updates without downtime
-- **Impact**: **Eliminates single points of failure** - if one pod crashes, others continue serving traffic
 
-**Example YAML**:
+**Impact**: Eliminates single points of failure - if one pod crashes, others continue serving traffic
 
+**Example**:
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -305,23 +301,6 @@ spec:
           limits:
             cpu: "500m"
             memory: "512Mi"
-        # Basic health checks for Factor II integration
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 15
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 3
-          failureThreshold: 3
 ```
 
 ---
@@ -332,9 +311,7 @@ spec:
 
 **Priority**: Critical Foundation
 
-**Why Essential**: Health checks are the **second most critical** feature for resilience. Without proper health checks, Kubernetes cannot detect failed pods or route traffic away from unhealthy instances, leading to user-facing errors.
-
-Probes ensure Kubernetes only routes traffic to healthy pods and restarts unhealthy ones. This factor builds upon Factor I (Replicated Workloads) by ensuring that only healthy replicas receive traffic.
+**Why Essential**: Health checks are the second most critical feature for resilience. Without proper health checks, Kubernetes cannot detect failed pods or route traffic away from unhealthy instances, leading to user-facing errors.
 
 **Use Case**: Essential for detecting app crashes, slow startups, or degraded performance
 
@@ -343,46 +320,38 @@ Probes ensure Kubernetes only routes traffic to healthy pods and restarts unheal
 - **Readiness**: Controls traffic routing to healthy pods
 - **Startup**: Handles slow-starting containers (Kubernetes 1.16+)
 - **Best Practice**: Expose reliable `/health` and `/ready` endpoints; tune timeouts for your application
-- **Impact**: **Prevents routing traffic to failed pods** and enables automatic recovery
 
-**Comprehensive Health Check Example**:
+**Impact**: Prevents routing traffic to failed pods and enables automatic recovery
 
+**Example**:
 ```yaml
 containers:
 - name: app
   image: my-app:latest
   
-  # STARTUP PROBE - Handles slow-starting applications
-  # Prevents premature restarts during application initialization
+  # Startup probe - handles slow-starting applications
   startupProbe:
     httpGet:
-      path: /startup          # Endpoint that indicates app is starting up
+      path: /startup
       port: 8080
-    failureThreshold: 30      # Allow up to 30 failures (5 minutes total)
-    periodSeconds: 10         # Check every 10 seconds
-    timeoutSeconds: 5         # Fail if response takes longer than 5 seconds
+    failureThreshold: 30
+    periodSeconds: 10
   
-  # LIVENESS PROBE - Detects and restarts unhealthy containers
-  # Restarts the container if it becomes unresponsive or stuck
+  # Liveness probe - detects and restarts unhealthy containers
   livenessProbe:
     httpGet:
-      path: /health           # Endpoint that checks basic application health
+      path: /health
       port: 8080
-    initialDelaySeconds: 15   # Wait 15 seconds before first check (after startup)
-    periodSeconds: 10         # Check every 10 seconds
-    timeoutSeconds: 5         # Fail if response takes longer than 5 seconds
-    failureThreshold: 3       # Restart after 3 consecutive failures (30 seconds)
+    periodSeconds: 10
+    failureThreshold: 3
   
-  # READINESS PROBE - Controls traffic routing to healthy pods
-  # Only routes traffic to pods that are ready to serve requests
+  # Readiness probe - controls traffic routing to healthy pods
   readinessProbe:
     httpGet:
-      path: /ready            # Endpoint that verifies all dependencies are available
+      path: /ready
       port: 8080
-    initialDelaySeconds: 5    # Wait 5 seconds before first check (shorter than liveness)
-    periodSeconds: 5          # Check every 5 seconds (more frequent for traffic control)
-    timeoutSeconds: 3         # Fail if response takes longer than 3 seconds
-    failureThreshold: 3       # Remove from traffic after 3 failures (15 seconds)
+    periodSeconds: 5
+    failureThreshold: 3
 ```
 
 ---
@@ -393,9 +362,7 @@ containers:
 
 **Priority**: Critical Foundation
 
-**Why Essential**: Without proper resource management, pods can consume excessive resources, causing node failures and cascading outages. This factor ensures stable resource allocation and prevents "noisy neighbor" problems that can cascade across the entire cluster.
-
-Resource management works in conjunction with Factors I and II to ensure that replicated workloads have stable, predictable resource allocation and can be properly scheduled and monitored.
+**Why Essential**: Without proper resource management, pods can consume excessive resources, causing node failures and cascading outages. This factor ensures stable resource allocation and prevents "noisy neighbor" problems.
 
 **Use Case**: All production workloads to prevent resource contention and ensure predictable performance
 
@@ -405,226 +372,28 @@ Resource management works in conjunction with Factors I and II to ensure that re
 - Implement resource quotas and limit ranges
 - Configure priority classes for critical workloads
 - **Best Practice**: Start with conservative limits, implement gradual right-sizing
-- **Impact**: **Prevents resource exhaustion and ensures stable cluster performance**
 
-**1. CPU and Memory Requests and Limits**:
+**Impact**: Prevents resource exhaustion and ensures stable cluster performance
 
-Set CPU and memory requests and limits to prevent resource exhaustion and ensure predictable performance.
-
+**Example**:
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: web-app
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: web-app
-  template:
-    metadata:
-      labels:
-        app: web-app
-    spec:
-      containers:
-      - name: app
-        image: my-app:latest
-        ports:
-        - containerPort: 8080
-        
-        resources:
-          requests:
-            cpu: "100m"          # 0.1 CPU cores
-            memory: "128Mi"      # 128 MiB RAM
-          limits:
-            cpu: "500m"          # 0.5 CPU cores
-            memory: "512Mi"      # 512 MiB RAM
-        
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          periodSeconds: 30
-          timeoutSeconds: 5
-          failureThreshold: 3
-        
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          periodSeconds: 10
-          timeoutSeconds: 3
-          failureThreshold: 3
-```
+containers:
+- name: app
+  image: my-app:latest
+  
+  # Resource requests and limits
+  resources:
+    requests:
+      cpu: "100m"          # 0.1 CPU cores
+      memory: "128Mi"      # 128 MiB RAM
+    limits:
+      cpu: "500m"          # 0.5 CPU cores
+      memory: "512Mi"      # 512 MiB RAM
 
-**2. QoS Classes and Their Impact**:
-
-Use Quality of Service (QoS) classes to prioritize workloads under resource pressure.
-
-```yaml
-# Guaranteed QoS - Highest priority (requests = limits)
-# Use for: Critical databases, monitoring systems
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: critical-app
-spec:
-  template:
-    spec:
-      containers:
-      - name: app
-        image: critical-app:latest
-        resources:
-          requests:
-            cpu: "500m"
-            memory: "512Mi"
-          limits:
-            cpu: "500m"          # Must equal requests
-            memory: "512Mi"      # Must equal requests
----
-# Burstable QoS - Medium priority (requests < limits)
-# Use for: Web applications, APIs
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: web-app
-spec:
-  template:
-    spec:
-      containers:
-      - name: app
-        image: web-app:latest
-        resources:
-          requests:
-            cpu: "100m"
-            memory: "128Mi"
-          limits:
-            cpu: "500m"          # Can burst above requests
-            memory: "256Mi"
----
-# BestEffort QoS - Lowest priority (no requests/limits)
-# Use for: Batch jobs, non-critical workloads
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: batch-job
-spec:
-  template:
-    spec:
-      containers:
-      - name: job
-        image: batch-job:latest
-        # No resource specifications = BestEffort
-```
-
-**QoS Priority Order**: Guaranteed (highest) → Burstable → BestEffort (lowest)
-
-**3. Resource Quotas and Limit Ranges**:
-
-Implement namespace-level resource controls to prevent resource exhaustion and ensure fair allocation. Prevents one team or application from consuming all cluster resources, ensuring fair allocation.
-
-```yaml
-# Resource Quota - Limits total resources in a namespace
-apiVersion: v1
-kind: ResourceQuota
-metadata:
-  name: production-quota
-  namespace: production
-spec:
-  hard:
-    requests.cpu: "8"
-    requests.memory: 16Gi
-    limits.cpu: "16"
-    limits.memory: 32Gi
-    count/pods: "50"
-    count/deployments.apps: "20"
-  scopes:
-  - BestEffort
-  - NotTerminating
----
-# Limit Range - Sets defaults for containers/pods
-apiVersion: v1
-kind: LimitRange
-metadata:
-  name: production-limits
-  namespace: production
-spec:
-  limits:
-  - default:
-      cpu: 500m
-      memory: 512Mi
-    defaultRequest:
-      cpu: 100m
-      memory: 128Mi
-    type: Container
-  - default:
-      cpu: 1000m
-      memory: 1Gi
-    defaultRequest:
-      cpu: 200m
-      memory: 256Mi
-    type: Pod
-```
-
-**4. Priority Classes for Critical Workloads**:
-
-Use priority classes to ensure critical workloads get scheduled first and are last to be evicted.
-
-```yaml
-# Priority Classes - Higher values = higher priority
-apiVersion: scheduling.k8s.io/v1
-kind: PriorityClass
-metadata:
-  name: critical-priority
-value: 1000000                    # Very high priority
-globalDefault: false
-description: "Critical workloads"
----
-apiVersion: scheduling.k8s.io/v1
-kind: PriorityClass
-metadata:
-  name: high-priority
-value: 100000                     # High priority
-globalDefault: false
-description: "High priority workloads"
----
-apiVersion: scheduling.k8s.io/v1
-kind: PriorityClass
-metadata:
-  name: low-priority
-value: 1000                       # Low priority
-globalDefault: false
-description: "Low priority workloads"
-```
-
-**Critical Workload Example**:
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: critical-database
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: critical-database
-  template:
-    metadata:
-      labels:
-        app: critical-database
-    spec:
-      priorityClassName: critical-priority
-      containers:
-      - name: database
-        image: postgres:14
-        resources:
-          requests:
-            cpu: "1000m"
-            memory: "2Gi"
-          limits:
-            cpu: "2000m"
-            memory: "4Gi"
+# QoS Classes
+# Guaranteed: requests = limits (highest priority)
+# Burstable: requests < limits (medium priority)  
+# BestEffort: no requests/limits (lowest priority)
 ```
 
 ---
@@ -635,56 +404,35 @@ spec:
 
 **Priority**: High Priority Resilience
 
-**Why Essential**: Proper lifecycle management is essential for **preventing dropped requests during deployments and ensuring reliable startup**. Without it, rolling updates can interrupt active connections, and slow-starting applications can cause cascading failures.
-
-This factor builds upon the previous three factors by ensuring that the replicated workloads with proper health monitoring and resource management can transition between states without impacting user experience.
+**Why Essential**: Proper lifecycle management is essential for preventing dropped requests during deployments and ensuring reliable startup. Without it, rolling updates can interrupt active connections, and slow-starting applications can cause cascading failures.
 
 **Use Case**: Apps with active connections, in-flight requests, cleanup requirements, or slow startup times
 
+**Configuration**:
+- Use `startupProbe` for slow-starting applications
+- Configure `terminationGracePeriodSeconds` for cleanup time
+- Implement `preStop` hooks for graceful shutdown
+- **Best Practice**: Coordinate shutdown with load balancer drain times
 
+**Impact**: Prevents dropped requests during deployments and ensures clean connection termination
+
+**Example**:
 ```yaml
 spec:
   terminationGracePeriodSeconds: 60  # Extended time for cleanup
   containers:
   - name: web-app
     image: my-app:latest
-    resources:
-      requests:
-        cpu: "100m"
-        memory: "128Mi"
-      limits:
-        cpu: "500m"
-        memory: "512Mi"
     
-    # STARTUP MANAGEMENT - Prevents premature restarts and ensures reliable initialization
+    # Startup probe - prevents premature restarts
     startupProbe:
       httpGet:
         path: /startup
         port: 8080
-      failureThreshold: 30    # Allow up to 5 minutes for startup
-      periodSeconds: 10       # Check every 10 seconds
-      timeoutSeconds: 5       # Fail if response takes > 5 seconds
-    
-    # HEALTH MONITORING (after startup) - Controls traffic routing and detects failures
-    livenessProbe:
-      httpGet:
-        path: /health
-        port: 8080
-      initialDelaySeconds: 15  # Wait for startup to complete
+      failureThreshold: 30
       periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 3
     
-    readinessProbe:
-      httpGet:
-        path: /ready
-        port: 8080
-      initialDelaySeconds: 5   # Shorter delay for traffic routing
-      periodSeconds: 5
-      timeoutSeconds: 3
-      failureThreshold: 3
-    
-    # SHUTDOWN MANAGEMENT - Prevents dropped requests during deployments
+    # Graceful shutdown - prevents dropped requests
     lifecycle:
       preStop:
         exec:
@@ -692,12 +440,8 @@ spec:
           - /bin/sh
           - -c
           - |
-            echo "Graceful shutdown initiated"
-            # Stop accepting new connections
             curl -X POST http://localhost:8080/shutdown
-            # Wait for in-flight requests to complete
-            sleep 10
-            echo "Shutdown complete"
+            sleep 10  # Allow load balancer to drain
 ```
 
 **Key Timing Considerations:**
@@ -714,75 +458,40 @@ spec:
 
 **Priority**: High Priority Resilience
 
-**Why Essential**: Pod distribution is **critical for surviving infrastructure failures**. Without proper distribution, a single node or zone failure can take down your entire application, causing complete service outages.
-
-This factor builds upon the previous factors by ensuring that replicated workloads are distributed across failure domains, not just running multiple copies on the same infrastructure.
+**Why Essential**: Pod distribution is critical for surviving infrastructure failures. Without proper distribution, a single node or zone failure can take down your entire application, causing complete service outages.
 
 **Use Case**: High-availability applications in multi-zone cloud clusters that need to survive infrastructure failures
 
 **Configuration**:
 - Use `topologySpreadConstraints` with `topologyKey: topology.kubernetes.io/zone`
-  - Apply `podAntiAffinity` to spread pods across nodes
-  - Use `DoNotSchedule` for critical services, `ScheduleAnyway` for non-critical
-  - Use `topologySpreadConstraints` for even distribution, `podAntiAffinity` for simple rules
-- **Replica Count**: Use `min_replicas = max(3, number_of_zones)` for production workloads
+- Apply `podAntiAffinity` to spread pods across nodes
+- Use `DoNotSchedule` for critical services, `ScheduleAnyway` for non-critical
 - **Best Practice**: Balance distribution with cloud costs (cross-zone traffic fees)
-- **Impact**: **Ensures service survives node and zone failures**
 
-**Topology Spreading Example**:
+**Impact**: Ensures service survives node and zone failures
 
-Zone-level pod distribution strategy for high-availability applications.
-
+**Example**:
 ```yaml
-# Simple deployment with zone-level topology spreading
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: web-app
-  labels:
-    app: web-app
 spec:
-  replicas: 3  # Minimum for zone-level resilience
-  selector:
-    matchLabels:
-      app: web-app
-  template:
-    metadata:
-      labels:
+  # Zone-level distribution - spread pods across availability zones
+  topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
         app: web-app
-    spec:
-      # Zone-level distribution - spread pods across availability zones
-      topologySpreadConstraints:
-      - maxSkew: 1                                # Maximum 1 pod difference between zones
-        topologyKey: topology.kubernetes.io/zone  # Spread across availability zones
-        whenUnsatisfiable: DoNotSchedule          # Fail if constraint can't be met
-        labelSelector:
-          matchLabels:
-            app: web-app
-      
-      # Anti-affinity - avoid scheduling multiple pods on same node
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  app: web-app
-              topologyKey: kubernetes.io/hostname  # Avoid same node
-      
-      containers:
-      - name: web-app
-        image: nginx:1.21
-        ports:
-        - containerPort: 80
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
+  
+  # Anti-affinity - avoid scheduling multiple pods on same node
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app: web-app
+          topologyKey: kubernetes.io/hostname
 ```
 
 ---
@@ -793,9 +502,7 @@ spec:
 
 **Priority**: High Priority Resilience
 
-**Why Essential**: HPA is **essential for handling traffic spikes and replacing failed pods**. Without autoscaling, traffic surges can overwhelm fixed-capacity deployments, causing cascading failures and service degradation.
-
-This factor builds upon the previous factors by ensuring that the distributed, replicated workloads can automatically scale to handle varying load and replace failed instances.
+**Why Essential**: HPA is essential for handling traffic spikes and replacing failed pods. Without autoscaling, traffic surges can overwhelm fixed-capacity deployments, causing cascading failures and service degradation.
 
 **Use Case**: Essential for dynamic workloads like e-commerce APIs, web applications, or any service with variable traffic
 
@@ -804,10 +511,10 @@ This factor builds upon the previous factors by ensuring that the distributed, r
 - Set appropriate min/max replica bounds
 - Configure scaling behavior to prevent thrashing
 - **Best Practice**: Combine with Cluster Autoscaler; use multiple metrics for robust scaling decisions
-- **Impact**: **Automatically handles traffic spikes and maintains capacity during pod failures**
 
-**HPA Example**:
+**Impact**: Automatically handles traffic spikes and maintains capacity during pod failures
 
+**Example**:
 ```yaml
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -818,7 +525,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: web-app
-  minReplicas: 3  # Higher minimum for resilience
+  minReplicas: 3
   maxReplicas: 20
   metrics:
   - type: Resource
@@ -833,48 +540,11 @@ spec:
       target:
         type: Utilization
         averageUtilization: 80
-  # Custom metrics for application-specific scaling
-  - type: Object
-    object:
-      metric:
-        name: requests-per-second
-      describedObject:
-        apiVersion: networking.k8s.io/v1
-        kind: Ingress
-        name: web-app-ingress
-      target:
-        type: Value
-        value: 1000
-  # External metrics for business-driven scaling
-  - type: External
-    external:
-      metric:
-        name: queue_length
-        selector:
-          matchLabels:
-            queue: order-processing
-      target:
-        type: AverageValue
-        averageValue: 100
   behavior:
     scaleDown:
-      stabilizationWindowSeconds: 300  # Prevent rapid scale-down
-      policies:
-      - type: Percent
-        value: 10
-        periodSeconds: 60
-      - type: Pods
-        value: 1
-        periodSeconds: 60
+      stabilizationWindowSeconds: 300
     scaleUp:
-      stabilizationWindowSeconds: 60   # Allow rapid scale-up
-      policies:
-      - type: Percent
-        value: 50
-        periodSeconds: 60
-      - type: Pods
-        value: 2
-        periodSeconds: 60
+      stabilizationWindowSeconds: 60
 ```
 
 ---
@@ -885,9 +555,7 @@ spec:
 
 **Priority**: High Priority Resilience
 
-**Why Essential**: PDBs are **critical for maintaining availability during planned maintenance**. Without PDBs, cluster upgrades or node maintenance can take down all pods simultaneously, causing complete service outages.
-
-This factor builds upon the previous factors by ensuring that the distributed, auto-scaling workloads are protected during intentional operational activities like cluster maintenance and node upgrades.
+**Why Essential**: PDBs are critical for maintaining availability during planned maintenance. Without PDBs, cluster upgrades or node maintenance can take down all pods simultaneously, causing complete service outages.
 
 **Use Case**: Essential for all production services where downtime impacts SLAs
 
@@ -895,10 +563,10 @@ This factor builds upon the previous factors by ensuring that the distributed, a
 - Set `minAvailable` (e.g., 2 pods or 80%) or `maxUnavailable` (e.g., 1 pod)
 - Apply to workloads via label selectors
 - **Best Practice**: Use `minAvailable: 2` for critical services, avoid `minAvailable: 100%` which blocks all maintenance
-- **Impact**: **Prevents cluster maintenance from causing service outages**
 
-**PDB Example**:
+**Impact**: Prevents cluster maintenance from causing service outages
 
+**Example**:
 ```yaml
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -919,9 +587,7 @@ spec:
 
 **Priority**: Medium Priority
 
-**Why Essential**: Configuration management is **critical for avoiding downtime during updates**. Without externalized configuration and hot reloading, every config change requires pod restarts, causing service interruptions.
-
-This factor builds upon the previous factors by ensuring that the resilient workloads can adapt to configuration changes without disrupting service availability.
+**Why Essential**: Configuration management is critical for avoiding downtime during updates. Without externalized configuration and hot reloading, every config change requires pod restarts, causing service interruptions.
 
 **Use Case**: Essential for feature flags, database connections, API keys, and runtime settings
 
@@ -930,10 +596,10 @@ This factor builds upon the previous factors by ensuring that the resilient work
 - Use `Secrets` for sensitive information
 - Implement configuration hot-reloading in applications
 - **Best Practice**: Version your configs; implement validation; use config checksums
-- **Impact**: **Eliminates downtime from configuration changes and enables faster deployments**
 
-**Configuration Example**:
+**Impact**: Eliminates downtime from configuration changes and enables faster deployments
 
+**Example**:
 ```yaml
 # ConfigMap for non-sensitive configuration
 apiVersion: v1
@@ -944,71 +610,24 @@ data:
   database.host: "db.example.com"
   feature.newUI: "true"
   logging.level: "info"
-  app.port: "8080"
----
-# Secret for sensitive data
-apiVersion: v1
-kind: Secret
-metadata:
-  name: app-secrets
-type: Opaque
-data:
-  database.password: <base64-encoded-password>
-  api.key: <base64-encoded-key>
+
 ---
 # Deployment with configuration mounting
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: configurable-app
 spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: configurable-app
-  template:
-    metadata:
-      labels:
-        app: configurable-app
-    spec:
-      containers:
-      - name: app
-        image: my-app:latest
-        ports:
-        - containerPort: 8080
-        # Environment variables from ConfigMap and Secret
-        envFrom:
-        - configMapRef:
-            name: app-config
-        - secretRef:
-            name: app-secrets
-        # Volume mount for hot reloading
-        volumeMounts:
-        - name: config-volume
-          mountPath: /etc/config
-          readOnly: true
-        # Hot reloading command
-        command: ["/bin/sh", "-c"]
-        args:
-        - |
-          # Start config watcher in background
-          /app/config-watcher.sh &
-          # Start main application
-          /app/main
-      volumes:
-      - name: config-volume
-        configMap:
-          name: app-config
----
-# Simple config watcher script (runs inside container)
-# This would be part of your application image
-# /app/config-watcher.sh:
-# #!/bin/bash
-# while inotifywait -e modify /etc/config; do
-#   echo "Config changed, reloading application..."
-#   # SIGHUP signal triggers graceful config reload without restart
-#   kill -HUP $(pgrep main)
-# done
+  containers:
+  - name: app
+    image: my-app:latest
+    envFrom:
+    - configMapRef:
+        name: app-config
+    volumeMounts:
+    - name: config-volume
+      mountPath: /etc/config
+      readOnly: true
+  volumes:
+  - name: config-volume
+    configMap:
+      name: app-config
 ```
 
 ---
@@ -1021,8 +640,6 @@ spec:
 
 **Why Essential**: Data loss can be catastrophic for applications. Without proper storage resilience, infrastructure failures can result in permanent data loss, making all other resilience factors meaningless.
 
-This factor builds upon the previous factors by ensuring that the resilient workloads have reliable, persistent storage that can survive infrastructure failures.
-
 **Use Case**: Databases, file storage, session data
 
 **Configuration**:
@@ -1030,10 +647,10 @@ This factor builds upon the previous factors by ensuring that the resilient work
 - For Kubernetes storage, use `StatefulSet` with `PersistentVolumeClaims`
 - Choose appropriate `StorageClass` with replication
 - **Best Practice**: Implement regular backups; test restore procedures
-- **Impact**: **Protects against data loss and ensures business continuity**
 
-**StatefulSet with Persistent Storage**:
+**Impact**: Protects against data loss and ensures business continuity
 
+**Example**:
 ```yaml
 apiVersion: apps/v1
 kind: StatefulSet
@@ -1041,41 +658,15 @@ metadata:
   name: database
 spec:
   replicas: 3
-  selector:
-    matchLabels:
-      app: database
   serviceName: database-headless
   template:
-    metadata:
-      labels:
-        app: database
     spec:
       containers:
       - name: postgres
         image: postgres:14
-        env:
-        - name: POSTGRES_DB
-          value: myapp
-        - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              name: db-secret
-              key: username
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: db-secret
-              key: password
         volumeMounts:
         - name: data
           mountPath: /var/lib/postgresql/data
-        resources:
-          requests:
-            cpu: "500m"
-            memory: "1Gi"
-          limits:
-            cpu: "2000m"
-            memory: "4Gi"
   volumeClaimTemplates:
   - metadata:
       name: data
@@ -1097,23 +688,17 @@ spec:
 
 **Why Essential**: Network failures and traffic issues can cascade across services. Without proper network resilience, a failure in one service can bring down entire application stacks.
 
-This factor builds upon the previous factors by ensuring that the resilient workloads can communicate reliably and handle network-level failures gracefully.
-
 **Use Case**: Microservices architectures requiring circuit breakers, retries, and load balancing
 
 **Configuration**:
 - Deploy Istio, Linkerd, or similar service mesh
 - Configure retry policies, circuit breakers, and timeout policies
 - Implement canary deployments and traffic splitting
-- **Circuit Breakers**: Prevent cascading failures by temporarily stopping requests to failing services
-- **Load Balancing**: Distribute traffic across healthy instances
-- **Health Checks**: Fail fast when services are unhealthy
-- **Network Policies**: Control traffic flow between services (see Security section)
 - **Best Practice**: Start simple; add complexity as needed
-- **Impact**: **Prevents network failures from cascading across services**
 
-**Istio Traffic Policy Example**:
+**Impact**: Prevents network failures from cascading across services
 
+**Example**:
 ```yaml
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
@@ -1127,12 +712,10 @@ spec:
         maxConnections: 100
       http:
         http1MaxPendingRequests: 10
-        maxRequestsPerConnection: 2
     circuitBreaker:
       consecutiveGatewayErrors: 5
       interval: 30s
       baseEjectionTime: 30s
-      maxEjectionPercent: 50
     retryPolicy:
       attempts: 3
       perTryTimeout: 2s
@@ -1148,8 +731,6 @@ spec:
 
 **Why Essential**: Security is foundational to resilience - compromised pods can cause cascading failures and data breaches. Without proper security controls, the entire resilience architecture can be undermined.
 
-This factor builds upon the previous factors by ensuring that the resilient workloads are protected from security threats that could compromise their availability and integrity.
-
 **Use Case**: Production environments, compliance requirements, defense in depth
 
 **Configuration**:
@@ -1159,32 +740,12 @@ This factor builds upon the previous factors by ensuring that the resilient work
 - Configure network policies for traffic control
 - Implement RBAC with least privilege principle
 - **Best Practice**: Start with Restricted PSS and relax as needed, use dedicated service accounts for each workload
-- **Impact**: **Prevents security breaches that could compromise resilience**
 
-**Pod Security Standards and Security Contexts**:
+**Impact**: Prevents security breaches that could compromise resilience
 
-Security is foundational to resilience - compromised pods can cause cascading failures and data breaches. Pod Security Standards provide a standardized way to enforce security policies across namespaces.
-
+**Example**:
 ```yaml
-# Namespace with Pod Security Standards (Restricted)
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: production
-  labels:
-    pod-security.kubernetes.io/enforce: restricted
-    pod-security.kubernetes.io/enforce-version: v1.24
-    pod-security.kubernetes.io/audit: restricted
-    pod-security.kubernetes.io/audit-version: v1.24
-    pod-security.kubernetes.io/warn: restricted
-    pod-security.kubernetes.io/warn-version: v1.24
----
-# Secure Pod with minimal required security contexts
-apiVersion: v1
-kind: Pod
-metadata:
-  name: secure-web-app
-  namespace: production
+# Secure pod with minimal required security contexts
 spec:
   securityContext:
     runAsNonRoot: true
@@ -1202,17 +763,11 @@ spec:
     securityContext:
       allowPrivilegeEscalation: false
       readOnlyRootFilesystem: true
-      # Note: runAsNonRoot and runAsUser inherited from pod-level
-      # Note: capabilities inherited from pod-level
     volumeMounts:
     - name: tmp
       mountPath: /tmp
-    - name: varlog
-      mountPath: /var/log
   volumes:
   - name: tmp
-    emptyDir: {}
-  - name: varlog
     emptyDir: {}
 ```
 
@@ -1327,30 +882,43 @@ roleRef:
 
 **Why Essential**: Even with perfect infrastructure resilience, applications can fail due to logic errors, external dependency failures, or unexpected conditions. Application-level resilience patterns provide the final layer of protection and integrate seamlessly with Kubernetes health monitoring and traffic management.
 
-This factor builds upon all previous factors by ensuring that the resilient infrastructure is complemented by resilient application code that can handle failures gracefully and work effectively with Kubernetes orchestration.
-
 **Use Case**: All production applications, especially microservices, APIs, and applications with external dependencies, complex business logic, or strict availability requirements
 
-**Best Practice**: Start with health checks and timeouts, then progressively add circuit breakers and advanced patterns based on your application's failure modes
+**Configuration**:
+- **Critical Patterns**: Health check endpoints, timeout patterns, graceful degradation
+- **Essential Patterns**: Circuit breakers, retry with exponential backoff, rate limiting
+- **Production Patterns**: Idempotency, bulkhead pattern, async processing
+- **Best Practice**: Start with health checks and timeouts, then progressively add circuit breakers and advanced patterns based on your application's failure modes
 
-**Impact**: **Prevents application-level failures from causing service outages** and enables graceful handling of dependency failures
+**Impact**: Prevents application-level failures from causing service outages and enables graceful handling of dependency failures
 
-**Key Resilience Patterns**
+**Example**:
+```yaml
+# Application-level resilience patterns
+# Health check endpoints (integrate with Kubernetes probes)
+GET /health     # Basic application health
+GET /ready      # All dependencies available
+GET /startup    # Application initialization complete
 
-**Critical Patterns (Start Here)**
-- **Health Check Endpoints**: Implement `/health`, `/ready`, and `/startup` endpoints that integrate with Kubernetes probes
-- **Timeout Patterns**: Set timeouts at HTTP client, database, and application levels to prevent hanging operations
-- **Graceful Degradation**: Provide fallback functionality when non-critical dependencies fail
+# Circuit breaker pattern (application-level)
+class CircuitBreaker:
+  def __init__(self, failure_threshold=5, timeout=60):
+    self.failure_threshold = failure_threshold
+    self.timeout = timeout
+    self.failure_count = 0
+    self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
 
-**Essential Patterns (Add Next)**
-- **Circuit Breaker**: Automatically isolate failing dependencies with configurable failure thresholds
-- **Retry with Exponential Backoff**: Handle transient failures with smart retry logic and jitter
-- **Rate Limiting**: Protect services from overload using token bucket or sliding window algorithms
-
-**Production Patterns (Advanced)**
-- **Idempotency**: Ensure safe retries for state-changing operations using deterministic keys
-- **Bulkhead Pattern**: Isolate resources (thread pools, connections) to prevent cascade failures
-- **Async Processing**: Use message queues with dead letter exchanges for decoupled operations
+# Retry with exponential backoff
+def retry_with_backoff(func, max_retries=3, base_delay=1):
+  for attempt in range(max_retries):
+    try:
+      return func()
+    except Exception as e:
+      if attempt == max_retries - 1:
+        raise e
+      delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+      time.sleep(delay)
+```
 
 ---
 
@@ -1364,7 +932,7 @@ The journey from basic availability to advanced resilience is iterative and meas
 - **Improved incident response** through comprehensive observability and automated recovery mechanisms
 - **Cost optimization** through efficient resource utilization and reduced manual operational overhead
 
-## Key Takeaways for Cloud-Native Engineers and SREs:
+**Key Takeaways for Cloud-Native Engineers and SREs:**
 
 1. **Start with Fundamentals**: Implement Factors I-III (Replicated Workloads, Health Monitoring, Resource Management) as your foundation
 2. **Automate Lifecycle Management**: Factors IV-VI (Graceful Lifecycle, Topology Distribution, Auto-Scaling) benefit immensely from automation
