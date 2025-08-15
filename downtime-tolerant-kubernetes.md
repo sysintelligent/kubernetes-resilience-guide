@@ -1,6 +1,6 @@
 # The 12 Factors of Kubernetes Resilience
 
-This guide was sparked by a painful incident: during routine maintenance, a service without a PodDisruptionBudget had every replica evicted at once—leaving zero pods to serve traffic. That avoidable outage, and many similar "we learned the hard way" moments, revealed that resilience is built from specific, verifiable practices. Here we distill those lessons into 12 factors teams should apply to prevent repeat outages and sustain high availability in Kubernetes.
+This guide was sparked by a painful incident: during routine maintenance, a service without a PodDisruptionBudget had every replica evicted at once—leaving zero pods to serve traffic. That avoidable outage, and many similar "we learned the hard way" moments, revealed that resilience is built from specific, verifiable practices. Here we distill those lessons into 12 factors teams could apply to prevent repeat outages and sustain high availability in Kubernetes.
 
 **The 12 Factors of Kubernetes Resilience** presents a comprehensive methodology for building unstoppable applications in Kubernetes. Inspired by the 12-Factor App methodology, these factors provide a systematic approach to achieving 99.9%+ availability through proper pod distribution, health checks, autoscaling, and application-level patterns like circuit breakers and retries.
 
@@ -943,8 +943,6 @@ The journey from basic availability to advanced resilience is iterative and meas
 7. **Learn and Iterate**: Every incident is an opportunity to strengthen your resilience posture
 
 The investment in downtime tolerance pays dividends through improved customer satisfaction, reduced operational burden, and compliance with stringent SLAs. By following this systematic approach and continuously testing your assumptions, you'll build systems that gracefully handle the inevitable failures in distributed cloud environments.
-
-**Remember**: Resilience is not a destination but a continuous journey of improvement, testing, and adaptation to new failure modes and requirements. Start your journey today with the factors that matter most to your specific use case.
 
 ---
 
