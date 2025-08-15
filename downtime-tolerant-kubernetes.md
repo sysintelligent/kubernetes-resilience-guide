@@ -1,8 +1,8 @@
 # The 12 Factors of Kubernetes Resilience
 
-As Kubernetes adoption surges in cloud environments, ensuring applications are resilient to downtime—whether from node failures, upgrades, or network issues—is critical for meeting Service Level Agreements (SLAs) with customers. A single minute of downtime can cost enterprises $100,000+ in lost revenue and eroded customer trust [Gartner, 2014], while 99.9% availability allows only 8.76 hours of downtime per year compared to 4.38 minutes for 99.99% availability [Uptime Institute, 2021].
+This guide was sparked by a painful incident: during routine maintenance, a service without a PodDisruptionBudget had every replica evicted at once—leaving zero pods to serve traffic. That avoidable outage, and many similar "we learned the hard way" moments, revealed that resilience is built from specific, verifiable practices. Here we distill those lessons into 12 factors teams should apply to prevent repeat outages and sustain high availability in Kubernetes.
 
-This guide presents **The 12 Factors of Kubernetes Resilience**—a comprehensive methodology for building unstoppable applications in Kubernetes. Inspired by the 12-Factor App methodology, these factors provide a systematic approach to achieving 99.9%+ availability through proper pod distribution, health checks, autoscaling, and application-level patterns like circuit breakers and retries.
+**The 12 Factors of Kubernetes Resilience** presents a comprehensive methodology for building unstoppable applications in Kubernetes. Inspired by the 12-Factor App methodology, these factors provide a systematic approach to achieving 99.9%+ availability through proper pod distribution, health checks, autoscaling, and application-level patterns like circuit breakers and retries.
 
 Each factor builds upon the previous ones, creating a layered approach to resilience that addresses both infrastructure and application concerns. Updated for Kubernetes 1.28+, this guide shows how to achieve production-ready resilience through intentional design at both the application and infrastructure layers.
 
